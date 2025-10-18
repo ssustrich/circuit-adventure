@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Experimental.GlobalIllumination;
 
@@ -13,73 +14,71 @@ public class LEDLight : MonoBehaviour
     [Header("Start state")]
     public bool startOn = false;             // false = dark on play
 
+    bool _ready = false;
+
+
     Material[] _mats;           
     // per-instance mats
     public Light pointLight;
+
     void Awake()
     {
-        // Fallback: if you forgot to assign, try to find a renderer on this object
         if (lensRenderers == null || lensRenderers.Length == 0)
         {
             var r = GetComponentInChildren<Renderer>();
             if (r) lensRenderers = new[] { r };
         }
-
-        // Create unique material instances so each LED can be controlled independently
-        var list = new System.Collections.Generic.List<Material>();
-        foreach (var r in lensRenderers)
-        {
-            if (!r) continue;
-            // .materials returns instances for all sub-mats
-            var mats = r.materials;
-            foreach (var m in mats) list.Add(m);
-        }
-        _mats = list.ToArray();
+        // don’t build materials yet — do it lazily in SetOn
     }
 
     void Start()
     {
-        SetOn(startOn); // ensure correct state on play
+        SetOn(startOn);  // safe now because SetOn ensures init
     }
 
+    void EnsureReady()
+    {
+        if (_ready) return;
+        var list = new List<Material>();
+        foreach (var r in lensRenderers)
+        {
+            if (!r) continue;
+            // IMPORTANT: .materials (not sharedMaterials) -> per-instance copies
+            var mats = r.materials;
+            foreach (var m in mats) list.Add(m);
+        }
+        _mats = list.ToArray();
+        _ready = true;
+    }
     public void SetOn(bool on)
     {
-        if (_mats == null) return;
+        EnsureReady();                      // <-- lazy init here
 
+        if (_mats == null) return;
         for (int i = 0; i < _mats.Length; i++)
         {
             var m = _mats[i];
             if (!m) continue;
+            if (!m.HasProperty("_EmissionColor")) continue;
 
-            if (m.HasProperty("_EmissionColor"))
+            if (on)
             {
-                if (on)
-                {
-                    m.EnableKeyword("_EMISSION");
-                    m.SetColor("_EmissionColor", onEmission);
-                }
-                else
-                {
-                    // turn emission fully off
-                    m.SetColor("_EmissionColor", offEmission);
-                    m.DisableKeyword("_EMISSION");
-                }
+                m.EnableKeyword("_EMISSION");
+                m.SetColor("_EmissionColor", onEmission);
+            }
+            else
+            {
+                m.SetColor("_EmissionColor", offEmission);
+                m.DisableKeyword("_EMISSION");
             }
         }
-        if (pointLight) pointLight.enabled = on;
     }
 
-    // Handy manual toggle (e.g., call from a button or key)
-    public void Toggle() => SetOn(!IsOn());
     public bool IsOn()
     {
-        if (_mats == null || _mats.Length == 0) return false;
-        // If any mat has emission keyword enabled, consider it "on"
-        for (int i = 0; i < _mats.Length; i++)
-        {
-            var m = _mats[i];
+        if (!_ready || _mats == null) return false;
+        foreach (var m in _mats)
             if (m && m.IsKeywordEnabled("_EMISSION")) return true;
-        }
         return false;
     }
 }

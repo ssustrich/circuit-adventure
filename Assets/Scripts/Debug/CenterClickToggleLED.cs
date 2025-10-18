@@ -23,7 +23,7 @@ public class CenterClickToggleLED : MonoBehaviour
             var led = hit.collider.GetComponentInParent<LEDLight>();
             if (led)
             {
-                led.Toggle();
+                //led.Toggle();
                 Debug.Log("[CenterClickToggleLED] Toggled LED via " + hit.collider.name);
             }
         }

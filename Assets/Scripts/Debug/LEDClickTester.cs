@@ -6,6 +6,6 @@ public class LEDClickTester : MonoBehaviour
     void Awake() { led = GetComponent<LEDLight>(); }
     void OnMouseDown()
     {
-        if (led) led.Toggle();   // click in Scene/Game to toggle on/off
+       // if (led) led.Toggle();   // click in Scene/Game to toggle on/off
     }
 }
